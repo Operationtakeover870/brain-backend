@@ -1,37 +1,18 @@
-"""
-BRAIN Backend — REST API server. Stdlib only, zero dependencies.
-
-Run:
-    python3 server.py            # serves on http://localhost:8765
-    PORT=9000 python3 server.py  # custom port
-
-Endpoints:
-    GET  /health
-    GET  /v1/voices
-    POST /v1/speak            {text, voice?, speed?}            -> audio/mpeg
-    POST /v1/images/generate  {prompt, size?}                  -> image/png
-    POST /v1/videos/generate  {prompt}                         -> 501 until configured
-    POST /v1/chat             {messages:[{role, content}]}      -> {reply}
-
-Errors are JSON: {"ok": false, "error": "..."} with an HTTP status code.
-Binary successes return the raw bytes with the right Content-Type.
-"""
+"""BRAIN Backend — dependency-free REST API and web studio server."""
 
 import json
 import mimetypes
 import os
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
 from providers import PROVIDERS, VOICES, ProviderNotConfigured
 
 PORT = int(os.environ.get("PORT", "8765"))
-MAX_BODY = 256 * 1024  # 256 KB
+MAX_BODY = 256 * 1024
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(ROOT_DIR, "static")
-# Web-asset extensions allowed when serving files (never .py / .env).
-WEB_EXTS = {".html", ".css", ".js", ".png", ".jpg", ".jpeg", ".gif", ".webp",
-            ".svg", ".ico", ".txt", ".map", ".json", ".mp3", ".wav"}
+WEB_EXTS = {".html", ".css", ".js", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico", ".txt", ".map", ".json", ".mp3", ".wav", ".mp4"}
 
 
 def send_json(handler, status, obj):
@@ -39,6 +20,7 @@ def send_json(handler, status, obj):
     handler.send_response(status)
     handler.send_header("Content-Type", "application/json")
     handler.send_header("Content-Length", str(len(body)))
+    handler.send_header("Cache-Control", "no-store")
     handler.end_headers()
     handler.wfile.write(body)
 
@@ -47,19 +29,22 @@ def send_bytes(handler, status, content_type, data):
     handler.send_response(status)
     handler.send_header("Content-Type", content_type)
     handler.send_header("Content-Length", str(len(data)))
+    handler.send_header("Cache-Control", "no-store")
     handler.end_headers()
     handler.wfile.write(data)
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "BrainBackend/1.0"
+    server_version = "BrainBackend/2.0"
 
-    def log_message(self, fmt, *args):  # quieter logs
+    def log_message(self, fmt, *args):
         print(f"[{self.command} {self.path}]", fmt % args)
 
-    # -- helpers -----------------------------------------------------
     def read_json_body(self):
-        length = int(self.headers.get("Content-Length", 0) or 0)
+        try:
+            length = int(self.headers.get("Content-Length", 0) or 0)
+        except ValueError:
+            raise ValueError("invalid Content-Length")
         if length > MAX_BODY:
             raise ValueError("body too large")
         raw = self.rfile.read(length) if length else b"{}"
@@ -72,34 +57,32 @@ class Handler(BaseHTTPRequestHandler):
         provider = PROVIDERS[key]
         try:
             result = provider.run(payload)
-        except ProviderNotConfigured as e:
-            send_json(self, 501, {"ok": False, "error": str(e), "provider": provider.name})
+        except ProviderNotConfigured as error:
+            send_json(self, 501, {"ok": False, "error": str(error), "provider": provider.name})
             return
-        except ValueError as e:
-            send_json(self, 400, {"ok": False, "error": str(e)})
+        except ValueError as error:
+            send_json(self, 400, {"ok": False, "error": str(error)})
             return
-        except Exception as e:
-            send_json(self, 502, {"ok": False, "error": f"provider failed: {e}"})
+        except Exception as error:
+            print(f"Provider {key} failed: {error}")
+            send_json(self, 502, {"ok": False, "error": f"provider failed: {error}"})
             return
-        if "data" in result:  # binary payload
+        if "data" in result:
             send_bytes(self, 200, result["content_type"], result["data"])
-        else:  # json payload
+        else:
             send_json(self, 200, {"ok": True, **result["json"]})
 
-    # -- routes ------------------------------------------------------
     def serve_static(self, rel_path):
-        # Prevent directory traversal; only serve web-asset files.
         safe = os.path.normpath(rel_path).lstrip("/")
         if os.path.splitext(safe)[1].lower() not in WEB_EXTS:
             send_json(self, 404, {"ok": False, "error": "not found"})
             return
-        # Look in static/ first, then repo root (for flat phone uploads).
         for base in (STATIC_DIR, ROOT_DIR):
             full = os.path.join(base, safe)
             if full.startswith(base) and os.path.isfile(full):
-                ctype, _ = mimetypes.guess_type(full)
-                with open(full, "rb") as f:
-                    send_bytes(self, 200, ctype or "application/octet-stream", f.read())
+                content_type, _ = mimetypes.guess_type(full)
+                with open(full, "rb") as asset:
+                    send_bytes(self, 200, content_type or "application/octet-stream", asset.read())
                 return
         send_json(self, 404, {"ok": False, "error": "not found"})
 
@@ -109,14 +92,13 @@ class Handler(BaseHTTPRequestHandler):
             send_json(self, 200, {
                 "ok": True,
                 "service": "brain-backend",
-                "providers": {k: p.name for k, p in PROVIDERS.items()},
+                "providers": {key: provider.name for key, provider in PROVIDERS.items()},
             })
         elif path == "/v1/voices":
             send_json(self, 200, {"ok": True, "voices": [
-                {"id": "smooth", "label": "Smooth (default)"},
-                {"id": "warm", "label": "Warm"},
+                {"id": key, "label": key.title()} for key in VOICES
             ]})
-        elif path == "/" or path == "/index.html":
+        elif path in {"/", "/index.html"}:
             self.serve_static("index.html")
         elif path.startswith("/static/"):
             self.serve_static(path[len("/static/"):])
@@ -127,26 +109,26 @@ class Handler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         try:
             payload = self.read_json_body()
-        except ValueError as e:
-            send_json(self, 400, {"ok": False, "error": str(e)})
+        except ValueError as error:
+            send_json(self, 400, {"ok": False, "error": str(error)})
             return
-
-        if path == "/v1/speak":
-            self.run_provider("tts", payload)
-        elif path == "/v1/images/generate":
-            self.run_provider("image", payload)
-        elif path == "/v1/videos/generate":
-            self.run_provider("video", payload)
-        elif path == "/v1/chat":
-            self.run_provider("chat", payload)
+        routes = {
+            "/v1/speak": "tts",
+            "/v1/images/generate": "image",
+            "/v1/videos/generate": "video",
+            "/v1/chat": "chat",
+        }
+        provider_key = routes.get(path)
+        if provider_key:
+            self.run_provider(provider_key, payload)
         else:
             send_json(self, 404, {"ok": False, "error": "not found"})
 
 
 if __name__ == "__main__":
-    server = HTTPServer(("0.0.0.0", PORT), Handler)
-    print(f"BRAIN backend live on http://localhost:{PORT}")
-    print("Providers:", ", ".join(f"{k}={p.name}" for k, p in PROVIDERS.items()))
+    server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
+    print(f"BRAIN backend live on http://0.0.0.0:{PORT}")
+    print("Providers:", ", ".join(f"{key}={provider.name}" for key, provider in PROVIDERS.items()))
     try:
         server.serve_forever()
     except KeyboardInterrupt:
