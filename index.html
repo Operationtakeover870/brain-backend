@@ -1,230 +1,31 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>BRAIN Studio</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #0b0b10; color: #f2f2f5; font-family: -apple-system, system-ui, sans-serif; min-height: 100vh; }
-  header { padding: 18px 16px 10px; text-align: center; }
-  header h1 { font-size: 22px; letter-spacing: 1px; }
-  header h1 span { color: #a78bfa; }
-  header p { color: #8a8a93; font-size: 12px; margin-top: 4px; }
-  nav { display: flex; gap: 8px; padding: 10px 16px; overflow-x: auto; }
-  nav button { flex: 1; min-width: 70px; padding: 10px 0; border: 1px solid #2a2a33; background: #14141b; color: #cfcfd6; border-radius: 12px; font-size: 14px; cursor: pointer; }
-  nav button.active { background: #a78bfa; color: #0b0b10; border-color: #a78bfa; font-weight: 700; }
-  main { padding: 8px 16px 40px; max-width: 640px; margin: 0 auto; }
-  section { display: none; }
-  section.active { display: block; }
-  label { display: block; color: #8a8a93; font-size: 12px; margin: 12px 0 6px; }
-  textarea, input[type=text], select { width: 100%; background: #14141b; border: 1px solid #2a2a33; color: #f2f2f5; border-radius: 12px; padding: 12px; font-size: 15px; }
-  textarea { min-height: 110px; resize: vertical; }
-  .row { display: flex; gap: 10px; align-items: center; }
-  .row > * { flex: 1; }
-  button.go { width: 100%; margin-top: 14px; padding: 14px; border: none; border-radius: 14px; background: #a78bfa; color: #0b0b10; font-size: 16px; font-weight: 700; cursor: pointer; }
-  button.go:disabled { opacity: .5; }
-  .out { margin-top: 16px; }
-  .out img, .out audio { width: 100%; border-radius: 12px; margin-top: 8px; }
-  .msg { padding: 12px; border-radius: 12px; font-size: 14px; margin-top: 10px; }
-  .msg.err { background: #2a1414; border: 1px solid #5a2323; color: #f0a8a8; }
-  .msg.ok { background: #142a1a; border: 1px solid #235a35; color: #a8f0b8; }
-  .msg.info { background: #14141b; border: 1px solid #2a2a33; color: #cfcfd6; }
-  #chatlog { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; max-height: 50vh; overflow-y: auto; }
-  .bubble { padding: 10px 12px; border-radius: 14px; font-size: 14px; max-width: 85%; line-height: 1.4; }
-  .bubble.user { align-self: flex-end; background: #a78bfa; color: #0b0b10; }
-  .bubble.bot { align-self: flex-start; background: #1a1a22; border: 1px solid #2a2a33; }
-  input[type=range] { width: 100%; accent-color: #a78bfa; }
-  .hint { color: #6a6a73; font-size: 11px; margin-top: 10px; text-align: center; }
+:root{--ink:#141513;--paper:#ebe8df;--ash:#b8b5ad;--line:#34362f;--panel:#1c1e1a;--lime:#d7ff4f;--hot:#ff6c45;--radius:18px}*{box-sizing:border-box}html{background:var(--ink)}body{min-height:100vh;margin:0;background:radial-gradient(circle at 88% -5%,#3e493233,transparent 33rem),var(--ink);color:var(--paper);font:500 15px/1.45 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input,textarea,select{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid var(--lime);outline-offset:3px}.shell{max-width:1240px;margin:auto;padding:22px}.mast{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;padding:8px 0 28px;border-bottom:1px solid var(--line)}.wordmark{letter-spacing:-.055em;font-size:clamp(2.65rem,9vw,6.5rem);line-height:.78;font-weight:900}.wordmark em{font-style:normal;color:var(--lime)}.meta{max-width:290px;color:var(--ash);font-size:12px;line-height:1.45}.live{display:inline-flex;align-items:center;gap:7px;color:var(--paper);margin-bottom:10px}.live i{width:8px;height:8px;border-radius:50%;background:var(--lime);box-shadow:0 0 0 4px #d7ff4f22}.layout{display:grid;grid-template-columns:minmax(260px,.72fr) minmax(0,1.5fr);min-height:670px}.rail{padding:22px 22px 22px 0;border-right:1px solid var(--line)}.mode{width:100%;display:flex;justify-content:space-between;align-items:center;text-align:left;background:transparent;color:var(--ash);border:0;border-bottom:1px solid var(--line);padding:16px 2px}.mode:first-of-type{border-top:1px solid var(--line)}.mode b{font-size:15px;font-weight:650}.mode span{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;color:#777970}.mode.active{color:var(--paper)}.mode.active span{color:var(--lime)}.footer-note{margin-top:28px;font:11px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:#777970}.workspace{min-width:0;padding:30px 0 48px 32px}.tab{display:none;animation:enter .26s ease}.tab.active{display:block}@keyframes enter{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}.eyebrow{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--lime);letter-spacing:.06em}.tab h1{max-width:690px;margin:8px 0 7px;letter-spacing:-.045em;font-size:clamp(2.1rem,5vw,4.5rem);line-height:.93}.sub{max-width:540px;margin:0 0 25px;color:var(--ash)}.form-grid{display:grid;grid-template-columns:1fr 180px;gap:12px}.field{display:flex;flex-direction:column;gap:7px}.field.wide{grid-column:1/-1}.field label{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--ash);text-transform:uppercase;letter-spacing:.08em}textarea,input[type=text],select{width:100%;border:1px solid var(--line);border-radius:12px;padding:13px 14px;background:var(--panel);color:var(--paper);transition:border-color .15s,background .15s}textarea:focus,input:focus,select:focus{border-color:var(--lime);background:#20231c}textarea{min-height:150px;resize:vertical}.range-row{display:flex;align-items:center;gap:12px}.range-row output{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--lime)}input[type=range]{accent-color:var(--lime);width:100%}.generate{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;margin-top:16px;padding:15px 17px;border:0;border-radius:12px;background:var(--lime);color:#15170f;font-weight:850;letter-spacing:-.01em;transition:transform .15s,background .15s}.generate:hover{transform:translateY(-2px);background:#e2ff78}.generate:disabled{cursor:wait;opacity:.5;transform:none}.generate .arrow{font-size:21px;line-height:0}.result{position:relative;min-height:170px;margin-top:22px;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:repeating-linear-gradient(0deg,transparent,transparent 27px,#ffffff05 28px),var(--panel)}.result.empty{display:grid;place-items:center;padding:30px}.empty-copy{max-width:270px;text-align:center;color:#777970;font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace}.result img,.result video{display:block;width:100%;max-height:610px;object-fit:contain;background:#0c0d0b}.result audio{width:calc(100% - 40px);margin:28px 20px}.result .status{padding:17px;color:var(--ash);font:12px ui-monospace,SFMono-Regular,Menlo,monospace}.result .status::before{content:'// ';color:var(--lime)}.result .error{color:#ffb5a4}.actions{display:flex;justify-content:flex-end;gap:8px;padding:10px;border-top:1px solid var(--line)}.actions button{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:transparent;color:var(--paper);font-size:12px}.actions button:hover{border-color:var(--lime);color:var(--lime)}.chatlog{display:flex;flex-direction:column;gap:12px;min-height:270px;max-height:430px;overflow:auto;padding:18px}.bubble{max-width:min(88%,630px);padding:12px 14px;border-radius:12px;font-size:14px}.bubble.user{align-self:flex-end;background:var(--lime);color:#15170f}.bubble.assistant{align-self:flex-start;border:1px solid var(--line);background:#20221e}.chat-row{display:flex;gap:9px;padding:10px;border-top:1px solid var(--line)}.chat-row input{flex:1}.chat-row button{border:0;border-radius:9px;padding:0 15px;background:var(--paper);color:var(--ink);font-weight:800}.hidden{display:none!important}@media(max-width:720px){.shell{padding:16px}.mast{padding-bottom:22px}.meta{display:none}.layout{display:block}.rail{display:flex;overflow:auto;gap:4px;padding:15px 0;border:0;border-bottom:1px solid var(--line)}.mode{display:block;min-width:95px;border:0!important;padding:9px 10px;border-radius:9px}.mode.active{background:var(--panel)}.mode span{display:block;margin-top:4px}.workspace{padding:28px 0}.form-grid{grid-template-columns:1fr}.wordmark{font-size:3.25rem}}
 </style>
 </head>
 <body>
-<header>
-  <h1>BRAIN <span>STUDIO</span></h1>
-  <p>your own creative backend</p>
-</header>
-<nav>
-  <button class="active" data-tab="speak">Speak</button>
-  <button data-tab="image">Image</button>
-  <button data-tab="video">Video</button>
-  <button data-tab="chat">Chat</button>
-</nav>
-<main>
-  <!-- SPEAK -->
-  <section id="tab-speak" class="active">
-    <label>Type something, hear it out loud</label>
-    <textarea id="speak-text" placeholder="Wassup twinn..."></textarea>
-    <div class="row">
-      <div>
-        <label>Voice</label>
-        <select id="speak-voice">
-          <option value="smooth">Smooth</option>
-          <option value="warm">Warm</option>
-        </select>
-      </div>
-      <div>
-        <label>Speed: <span id="speed-val">100</span></label>
-        <input type="range" id="speak-speed" min="50" max="200" value="100">
-      </div>
-    </div>
-    <button class="go" id="speak-go">Play it</button>
-    <div class="out" id="speak-out"></div>
-  </section>
-
-  <!-- IMAGE -->
-  <section id="tab-image">
-    <label>Describe the image</label>
-    <textarea id="img-prompt" placeholder="a neon city at night, cinematic..."></textarea>
-    <label>Size</label>
-    <select id="img-size">
-      <option>1024x1024</option>
-      <option>1792x1024</option>
-      <option>1024x1792</option>
-    </select>
-    <button class="go" id="img-go">Generate</button>
-    <div class="out" id="img-out"></div>
-  </section>
-
-  <!-- VIDEO -->
-  <section id="tab-video">
-    <label>Describe the video</label>
-    <textarea id="vid-prompt" placeholder="slow push-in on a rainy street..."></textarea>
-    <button class="go" id="vid-go">Generate</button>
-    <div class="out" id="vid-out"></div>
-  </section>
-
-  <!-- CHAT -->
-  <section id="tab-chat">
-    <div id="chatlog"></div>
-    <div class="row">
-      <input type="text" id="chat-in" placeholder="Ask anything...">
-      <button class="go" id="chat-go" style="flex:0 0 80px; margin-top:0;">Send</button>
-    </div>
-    <div class="out" id="chat-out"></div>
-  </section>
-
-  <p class="hint">Runs on your BRAIN backend · some providers need API keys</p>
-</main>
-
+<main class="shell">
+<header class="mast"><div class="wordmark">BR<em>AI</em>N</div><div class="meta"><div class="live"><i></i><span id="health">Checking backend…</span></div><br>Independent creative tools, served by your own backend. Your provider keys stay on the server.</div></header>
+<div class="layout"><nav class="rail" aria-label="Creative tools"><button class="mode active" data-mode="image"><b>Image</b><span>01 / MAKE</span></button><button class="mode" data-mode="video"><b>Video</b><span>02 / MOVE</span></button><button class="mode" data-mode="speak"><b>Speak</b><span>03 / VOICE</span></button><button class="mode" data-mode="chat"><b>Chat</b><span>04 / THINK</span></button><p class="footer-note">BRAIN STUDIO<br>LOCAL API / REMOTE POWER</p></nav>
+<section class="workspace">
+<section id="image" class="tab active"><p class="eyebrow">IMAGE GENERATOR</p><h1>Make an image with a point of view.</h1><p class="sub">Describe the subject, mood, material, light, and framing. The image is made by your server-side provider.</p><form id="image-form"><div class="form-grid"><div class="field wide"><label for="image-prompt">Prompt</label><textarea id="image-prompt" required placeholder="A close crop of an ancient chrome helmet half-buried in dune grass, severe winter sunlight, 35mm grain, no lettering"></textarea></div><div class="field"><label for="image-size">Canvas</label><select id="image-size"><option value="1024x1024">Square · 1024 × 1024</option><option value="1792x1024">Landscape · 1792 × 1024</option><option value="1024x1792">Portrait · 1024 × 1792</option></select></div></div><button class="generate" type="submit"><span>Generate image</span><span class="arrow">↗</span></button></form><div id="image-result" class="result empty"><p class="empty-copy">The next visual will develop here. Finished files can be played, viewed, and downloaded locally.</p></div></section>
+<section id="video" class="tab"><p class="eyebrow">VIDEO GENERATOR</p><h1>Give the still world a pulse.</h1><p class="sub">Create a focused moving shot. Video generation needs a configured Replicate model on the backend.</p><form id="video-form"><div class="form-grid"><div class="field wide"><label for="video-prompt">Shot direction</label><textarea id="video-prompt" required placeholder="Slow dolly past a brutalist concrete tower in dense fog, wet pavement reflections, dawn light, restrained movement"></textarea></div></div><button class="generate" type="submit"><span>Generate video</span><span class="arrow">↗</span></button></form><div id="video-result" class="result empty"><p class="empty-copy">The backend will poll the provider until your finished video is ready.</p></div></section>
+<section id="speak" class="tab"><p class="eyebrow">VOICE SYNTHESIS</p><h1>Turn a line into a voice.</h1><p class="sub">Use the BRAIN voice engine installed on the server.</p><form id="speak-form"><div class="form-grid"><div class="field wide"><label for="speak-text">Script</label><textarea id="speak-text" maxlength="2000" required placeholder="The future is not waiting somewhere else. It is being built in the room with us."></textarea></div><div class="field"><label for="voice">Voice</label><select id="voice"><option value="smooth">Smooth</option><option value="warm">Warm</option></select></div><div class="field"><label for="speed">Speed <output id="speed-output">100</output></label><div class="range-row"><input id="speed" type="range" min="50" max="200" value="100"></div></div></div><button class="generate" type="submit"><span>Generate voice</span><span class="arrow">↗</span></button></form><div id="speak-result" class="result empty"><p class="empty-copy">Your audio will land here with playback and download controls.</p></div></section>
+<section id="chat" class="tab"><p class="eyebrow">BRAIN CHAT</p><h1>Work through the next idea.</h1><p class="sub">A private conversational layer powered by the provider configured on your backend.</p><div id="chat-result" class="result"><div id="chat-log" class="chatlog"><div class="bubble assistant">What are you making today?</div></div><form id="chat-form" class="chat-row"><input id="chat-input" type="text" placeholder="Ask BRAIN…" autocomplete="off"><button type="submit">Send</button></form></div></section>
+</section></div></main>
 <script>
-const $ = id => document.getElementById(id);
-
-// tabs
-document.querySelectorAll('nav button').forEach(b => {
-  b.onclick = () => {
-    document.querySelectorAll('nav button').forEach(x => x.classList.remove('active'));
-    document.querySelectorAll('section').forEach(x => x.classList.remove('active'));
-    b.classList.add('active');
-    $('tab-' + b.dataset.tab).classList.add('active');
-  };
-});
-
-function note(el, kind, text) {
-  el.innerHTML = `<div class="msg ${kind}">${text}</div>`;
-}
-
-$('speed-val').textContent = $('speak-speed').value;
-$('speak-speed').oninput = e => $('speed-val').textContent = e.target.value;
-
-// SPEAK
-$('speak-go').onclick = async () => {
-  const text = $('speak-text').value.trim();
-  if (!text) return;
-  const btn = $('speak-go');
-  btn.disabled = true; btn.textContent = 'Cooking...';
-  note($('speak-out'), 'info', 'Generating audio...');
-  try {
-    const r = await fetch('/v1/speak', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ text, voice: $('speak-voice').value, speed: +$('speak-speed').value })
-    });
-    if (!r.ok) {
-      const j = await r.json();
-      note($('speak-out'), 'err', j.error || 'Something went wrong.');
-    } else {
-      const blob = await r.blob();
-      const url = URL.createObjectURL(blob);
-      $('speak-out').innerHTML = `<audio controls autoplay src="${url}"></audio>`;
-    }
-  } catch (e) { note($('speak-out'), 'err', 'Could not reach the backend.'); }
-  btn.disabled = false; btn.textContent = 'Play it';
-};
-
-// IMAGE
-$('img-go').onclick = async () => {
-  const prompt = $('img-prompt').value.trim();
-  if (!prompt) return;
-  const btn = $('img-go');
-  btn.disabled = true; btn.textContent = 'Cooking...';
-  note($('img-out'), 'info', 'Generating image — this can take a minute...');
-  try {
-    const r = await fetch('/v1/images/generate', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ prompt, size: $('img-size').value })
-    });
-    if (!r.ok) {
-      const j = await r.json();
-      note($('img-out'), 'err', j.error || 'Something went wrong.');
-    } else {
-      const blob = await r.blob();
-      const url = URL.createObjectURL(blob);
-      $('img-out').innerHTML = `<img src="${url}" alt="generated image">`;
-    }
-  } catch (e) { note($('img-out'), 'err', 'Could not reach the backend.'); }
-  btn.disabled = false; btn.textContent = 'Generate';
-};
-
-// VIDEO
-$('vid-go').onclick = async () => {
-  const prompt = $('vid-prompt').value.trim();
-  if (!prompt) return;
-  const btn = $('vid-go');
-  btn.disabled = true; btn.textContent = 'Cooking...';
-  note($('vid-out'), 'info', 'Video takes a few minutes...');
-  try {
-    const r = await fetch('/v1/videos/generate', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ prompt })
-    });
-    const j = await r.json().catch(() => ({}));
-    note($('vid-out'), 'err', j.error || 'Video provider is not configured yet.');
-  } catch (e) { note($('vid-out'), 'err', 'Could not reach the backend.'); }
-  btn.disabled = false; btn.textContent = 'Generate';
-};
-
-// CHAT
-const history = [];
-function bubble(role, text) {
-  const d = document.createElement('div');
-  d.className = 'bubble ' + role;
-  d.textContent = text;
-  $('chatlog').appendChild(d);
-  $('chatlog').scrollTop = $('chatlog').scrollHeight;
-}
-async function sendChat() {
-  const inp = $('chat-in');
-  const text = inp.value.trim();
-  if (!text) return;
-  inp.value = '';
-  bubble('user', text);
-  history.push({ role: 'user', content: text });
-  bubble('bot', '...');
-  try {
-    const r = await fetch('/v1/chat', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ messages: history })
-    });
-    const j = await r.json();
-    $('chatlog').lastChild.remove();
-    if (j.ok) { bubble('bot', j.reply); history.push({ role: 'assistant', content: j.reply }); }
-    else bubble('bot', '⚠️ ' + (j.error || 'Something went wrong.'));
-  } catch (e) {
-    $('chatlog').lastChild.remove();
-    bubble('bot', '⚠️ Could not reach the backend.');
-  }
-}
-$('chat-go').onclick = sendChat;
-$('chat-in').onkeydown = e => { if (e.key === 'Enter') sendChat(); };
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],history=[];
+function escape(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
+function result(id,kind,text){const el=$('#'+id+'-result');el.className='result';el.innerHTML='<div class="status '+(kind==='error'?'error':'')+'">'+escape(text)+'</div>'}
+function renderMedia(id,blob,type){const url=URL.createObjectURL(blob),tag=type==='image'?'<img src="'+url+'" alt="Generated image">':type==='video'?'<video controls playsinline src="'+url+'"></video>':'<audio controls autoplay src="'+url+'"></audio>',ext=type==='image'?'png':type==='video'?'mp4':'mp3',el=$('#'+id+'-result');el.className='result';el.innerHTML=tag+'<div class="actions"><button type="button">Download '+ext.toUpperCase()+'</button></div>';el.querySelector('button').onclick=()=>{const a=document.createElement('a');a.href=url;a.download='brain-'+Date.now()+'.'+ext;a.click()}}
+async function api(path,body){const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok){const j=await r.json().catch(()=>({}));throw new Error(j.error||'The backend returned '+r.status)}return r}
+async function submitMedia(e,id,path,payload,type,label){e.preventDefault();const btn=e.currentTarget.querySelector('button[type=submit]');btn.disabled=true;result(id,'info',label+' in progress…');try{const r=await api(path,payload());renderMedia(id,await r.blob(),type)}catch(err){result(id,'error',err.message)}finally{btn.disabled=false}}
+$('#image-form').onsubmit=e=>submitMedia(e,'image','/v1/images/generate',()=>({prompt:$('#image-prompt').value.trim(),size:$('#image-size').value}),'image','Image generation');$('#video-form').onsubmit=e=>submitMedia(e,'video','/v1/videos/generate',()=>({prompt:$('#video-prompt').value.trim()}),'video','Video generation');$('#speed').oninput=e=>$('#speed-output').value=e.target.value;$('#speak-form').onsubmit=e=>submitMedia(e,'speak','/v1/speak',()=>({text:$('#speak-text').value.trim(),voice:$('#voice').value,speed:+$('#speed').value}),'audio','Voice synthesis');
+$$('.mode').forEach(b=>b.onclick=()=>{$$('.mode,.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');$('#'+b.dataset.mode).classList.add('active')});function bubble(role,text){const d=document.createElement('div');d.className='bubble '+role;d.textContent=text;$('#chat-log').append(d);d.scrollIntoView({block:'nearest'})}$('#chat-form').onsubmit=async e=>{e.preventDefault();const input=$('#chat-input'),text=input.value.trim();if(!text)return;input.value='';bubble('user',text);history.push({role:'user',content:text});const pending=document.createElement('div');pending.className='bubble assistant';pending.textContent='Thinking…';$('#chat-log').append(pending);try{const r=await api('/v1/chat',{messages:history}),j=await r.json();pending.remove();if(!j.ok)throw new Error(j.error||'No reply returned');bubble('assistant',j.reply);history.push({role:'assistant',content:j.reply})}catch(err){pending.textContent='Error: '+err.message}};fetch('/health').then(r=>r.json()).then(j=>{$('#health').textContent=j.ok?'Backend online':'Backend error'}).catch(()=>{$('#health').textContent='Backend unavailable'});fetch('/v1/voices').then(r=>r.json()).then(j=>{if(j.voices)$('#voice').innerHTML=j.voices.map(v=>'<option value="'+escape(v.id)+'">'+escape(v.label)+'</option>').join('')}).catch(()=>{});
 </script>
-</body>
-</html>
+</body></html>
