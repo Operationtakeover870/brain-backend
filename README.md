@@ -1,78 +1,67 @@
 # BRAIN Backend
 
-Your own API/backend — Krea-style creative endpoints, running on your machine.
-Zero dependencies: pure Python stdlib. No `pip install` anything.
+An independent creative API and web studio served from one Python process. Deploy it to Render and open the service URL: the BRAIN Studio interface is served from `/` alongside the API.
 
-## Run it
+## What it does
+
+| Tool | Route | Status |
+|---|---|---|
+| Health | `GET /health` | Ready |
+| Voices | `GET /v1/voices` | Ready |
+| Speech | `POST /v1/speak` | Requires the `tts` CLI on the host |
+| Images | `POST /v1/images/generate` | Uses OpenAI `gpt-image-1` |
+| Video | `POST /v1/videos/generate` | Uses a configured Replicate video model |
+| Chat | `POST /v1/chat` | Uses OpenAI or an OpenAI-compatible endpoint |
+
+## Run locally
 
 ```sh
-cd ~/workspace/brain-backend
 python3 server.py
-# live on http://localhost:8765
+# http://localhost:8765
 ```
 
-Open **http://localhost:8765** in a browser — the BRAIN Studio web app is
-served right from the backend. Four tabs: Speak, Image, Video, Chat.
-No separate frontend to deploy: wherever the backend goes, the app goes.
-
-## Endpoints
-
-| Method | Path | Body | Returns |
-|---|---|---|---|
-| GET | `/health` | — | `{"ok": true, ...}` |
-| GET | `/v1/voices` | — | available TTS voices |
-| POST | `/v1/speak` | `{"text": "...", "voice": "smooth", "speed": 100}` | MP3 audio |
-| POST | `/v1/images/generate` | `{"prompt": "...", "size": "1024x1024"}` | PNG image |
-| POST | `/v1/videos/generate` | `{"prompt": "..."}` | 501 until configured |
-| POST | `/v1/chat` | `{"messages": [{"role": "user", "content": "..."}]}` | `{"reply": "..."}` |
-
-Try it:
+For Render, use this start command:
 
 ```sh
-curl localhost:8765/health
+python3 server.py
+```
 
-curl -X POST localhost:8765/v1/speak \
+The server reads Render's `PORT` environment variable automatically.
+
+## Environment variables
+
+Add these in **Render → Service → Environment**. Never put provider keys in `index.html` or commit them to GitHub.
+
+| Variable | Used by | Required |
+|---|---|---|
+| `OPENAI_API_KEY` | Images and chat | For image/chat |
+| `OPENAI_BASE_URL` | Chat | Optional; defaults to `https://api.openai.com/v1` |
+| `CHAT_MODEL` | Chat | Optional; defaults to `gpt-4o-mini` |
+| `REPLICATE_API_TOKEN` | Video | For video |
+| `REPLICATE_MODEL_VERSION` | Video | For video; the Replicate model version ID |
+| `REPLICATE_VIDEO_INPUT_JSON` | Video | Optional JSON object of fixed model-specific inputs |
+
+For example, `REPLICATE_VIDEO_INPUT_JSON` might contain a model's required fixed settings:
+
+```json
+{"num_frames": 81, "fps": 16}
+```
+
+The browser sends only the user's video `prompt`; the backend merges it with this server-side configuration, creates the Replicate prediction, polls it for up to 10 minutes, downloads the result, and returns an MP4 to the Studio.
+
+## API examples
+
+```sh
+curl https://YOUR-RENDER-SERVICE.onrender.com/health
+
+curl -X POST https://YOUR-RENDER-SERVICE.onrender.com/v1/images/generate \
   -H 'Content-Type: application/json' \
-  -d '{"text": "Wassup twinn, the backend is live."}' \
-  --output test.mp3 && ffplay test.mp3
+  -d '{"prompt":"a moonlit chrome helmet in dune grass","size":"1024x1024"}' \
+  --output brain.png
 ```
 
-## What works right now
+## Notes
 
-- **`/v1/speak`** — fully working. Uses the local TTS engine, Smooth voice by default.
-- **`/v1/voices`**, **`/health`** — working.
-
-## What needs an API key (bring your own)
-
-- **`/v1/images/generate`** — needs `OPENAI_API_KEY`. Returns HTTP 501 with setup
-  instructions until the key is set.
-- **`/v1/chat`** — needs `OPENAI_API_KEY` (or any OpenAI-style endpoint via
-  `OPENAI_BASE_URL`).
-- **`/v1/videos/generate`** — scaffolded. Needs `REPLICATE_API_TOKEN` plus
-  picking a video model — the poll loop is marked in `providers.py`.
-
-Copy `.env.example` to `.env`, fill in keys, and export them before starting:
-
-```sh
-set -a; source .env; set +a
-python3 server.py
-```
-
-## Put it on the internet (so your phone can reach it)
-
-Right now it only listens on your own machine (`127.0.0.1`). To reach it from
-your phone or share it:
-
-1. Easiest: deploy to a free host — Render, Railway, or Fly.io all take a
-   Python server with a `requirements.txt` (empty here) and a start command
-   of `python3 server.py`.
-2. Quick test: tools like `ngrok` or Cloudflare Tunnel give your localhost a
-   public URL in one command: `ngrok http 8765`.
-
-## Add your own endpoints
-
-1. Subclass `BaseProvider` in `providers.py`, implement `run(payload)`.
-2. Register it in `PROVIDERS`.
-3. Add the route in `server.py` (`do_POST`).
-
-That's the whole architecture. Experiment away.
+- The Studio calls relative URLs, so it works from the same Render service without exposing provider credentials to the browser.
+- The `tts` command must be installed in the Render image for speech to work. Images, video, and chat use their configured cloud providers instead.
+- Replicate video models vary in their accepted inputs. Put required static inputs in `REPLICATE_VIDEO_INPUT_JSON`; leave `prompt` out of that JSON because the Studio supplies it per generation.
