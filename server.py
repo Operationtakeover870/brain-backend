@@ -144,7 +144,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    server = HTTPServer(("127.0.0.1", PORT), Handler)
+    server = HTTPServer(("0.0.0.0", PORT), Handler)
     print(f"BRAIN backend live on http://localhost:{PORT}")
     print("Providers:", ", ".join(f"{k}={p.name}" for k, p in PROVIDERS.items()))
     try:
