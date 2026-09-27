@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>BRAIN Studio</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0b0b10; color: #f2f2f5; font-family: -apple-system, system-ui, sans-serif; min-height: 100vh; }
+  header { padding: 18px 16px 10px; text-align: center; }
+  header h1 { font-size: 22px; letter-spacing: 1px; }
+  header h1 span { color: #a78bfa; }
+  header p { color: #8a8a93; font-size: 12px; margin-top: 4px; }
+  nav { display: flex; gap: 8px; padding: 10px 16px; overflow-x: auto; }
+  nav button { flex: 1; min-width: 70px; padding: 10px 0; border: 1px solid #2a2a33; background: #14141b; color: #cfcfd6; border-radius: 12px; font-size: 14px; cursor: pointer; }
+  nav button.active { background: #a78bfa; color: #0b0b10; border-color: #a78bfa; font-weight: 700; }
+  main { padding: 8px 16px 40px; max-width: 640px; margin: 0 auto; }
+  section { display: none; }
+  section.active { display: block; }
+  label { display: block; color: #8a8a93; font-size: 12px; margin: 12px 0 6px; }
+  textarea, input[type=text], select { width: 100%; background: #14141b; border: 1px solid #2a2a33; color: #f2f2f5; border-radius: 12px; padding: 12px; font-size: 15px; }
+  textarea { min-height: 110px; resize: vertical; }
+  .row { display: flex; gap: 10px; align-items: center; }
+  .row > * { flex: 1; }
+  button.go { width: 100%; margin-top: 14px; padding: 14px; border: none; border-radius: 14px; background: #a78bfa; color: #0b0b10; font-size: 16px; font-weight: 700; cursor: pointer; }
+  button.go:disabled { opacity: .5; }
+  .out { margin-top: 16px; }
+  .out img, .out audio { width: 100%; border-radius: 12px; margin-top: 8px; }
+  .msg { padding: 12px; border-radius: 12px; font-size: 14px; margin-top: 10px; }
+  .msg.err { background: #2a1414; border: 1px solid #5a2323; color: #f0a8a8; }
+  .msg.ok { background: #142a1a; border: 1px solid #235a35; color: #a8f0b8; }
+  .msg.info { background: #14141b; border: 1px solid #2a2a33; color: #cfcfd6; }
+  #chatlog { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; max-height: 50vh; overflow-y: auto; }
+  .bubble { padding: 10px 12px; border-radius: 14px; font-size: 14px; max-width: 85%; line-height: 1.4; }
+  .bubble.user { align-self: flex-end; background: #a78bfa; color: #0b0b10; }
+  .bubble.bot { align-self: flex-start; background: #1a1a22; border: 1px solid #2a2a33; }
+  input[type=range] { width: 100%; accent-color: #a78bfa; }
+  .hint { color: #6a6a73; font-size: 11px; margin-top: 10px; text-align: center; }
+</style>
+</head>
+<body>
+<header>
+  <h1>BRAIN <span>STUDIO</span></h1>
+  <p>your own creative backend</p>
+</header>
+<nav>
+  <button class="active" data-tab="speak">Speak</button>
+  <button data-tab="image">Image</button>
+  <button data-tab="video">Video</button>
+  <button data-tab="chat">Chat</button>
+</nav>
+<main>
+  <!-- SPEAK -->
+  <section id="tab-speak" class="active">
+    <label>Type something, hear it out loud</label>
+    <textarea id="speak-text" placeholder="Wassup twinn..."></textarea>
+    <div class="row">
+      <div>
+        <label>Voice</label>
+        <select id="speak-voice">
+          <option value="smooth">Smooth</option>
+          <option value="warm">Warm</option>
+        </select>
+      </div>
+      <div>
+        <label>Speed: <span id="speed-val">100</span></label>
+        <input type="range" id="speak-speed" min="50" max="200" value="100">
+      </div>
+    </div>
+    <button class="go" id="speak-go">Play it</button>
+    <div class="out" id="speak-out"></div>
+  </section>
+
+  <!-- IMAGE -->
+  <section id="tab-image">
+    <label>Describe the image</label>
+    <textarea id="img-prompt" placeholder="a neon city at night, cinematic..."></textarea>
+    <label>Size</label>
+    <select id="img-size">
+      <option>1024x1024</option>
+      <option>1792x1024</option>
+      <option>1024x1792</option>
+    </select>
+    <button class="go" id="img-go">Generate</button>
+    <div class="out" id="img-out"></div>
+  </section>
+
+  <!-- VIDEO -->
+  <section id="tab-video">
+    <label>Describe the video</label>
+    <textarea id="vid-prompt" placeholder="slow push-in on a rainy street..."></textarea>
+    <button class="go" id="vid-go">Generate</button>
+    <div class="out" id="vid-out"></div>
+  </section>
+
+  <!-- CHAT -->
+  <section id="tab-chat">
+    <div id="chatlog"></div>
+    <div class="row">
+      <input type="text" id="chat-in" placeholder="Ask anything...">
+      <button class="go" id="chat-go" style="flex:0 0 80px; margin-top:0;">Send</button>
+    </div>
+    <div class="out" id="chat-out"></div>
+  </section>
+
+  <p class="hint">Runs on your BRAIN backend · some providers need API keys</p>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+
+// tabs
+document.querySelectorAll('nav button').forEach(b => {
+  b.onclick = () => {
+    document.querySelectorAll('nav button').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('section').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    $('tab-' + b.dataset.tab).classList.add('active');
+  };
+});
+
+function note(el, kind, text) {
+  el.innerHTML = `<div class="msg ${kind}">${text}</div>`;
+}
+
+$('speed-val').textContent = $('speak-speed').value;
+$('speak-speed').oninput = e => $('speed-val').textContent = e.target.value;
+
+// SPEAK
+$('speak-go').onclick = async () => {
+  const text = $('speak-text').value.trim();
+  if (!text) return;
+  const btn = $('speak-go');
+  btn.disabled = true; btn.textContent = 'Cooking...';
+  note($('speak-out'), 'info', 'Generating audio...');
+  try {
+    const r = await fetch('/v1/speak', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ text, voice: $('speak-voice').value, speed: +$('speak-speed').value })
+    });
+    if (!r.ok) {
+      const j = await r.json();
+      note($('speak-out'), 'err', j.error || 'Something went wrong.');
+    } else {
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      $('speak-out').innerHTML = `<audio controls autoplay src="${url}"></audio>`;
+    }
+  } catch (e) { note($('speak-out'), 'err', 'Could not reach the backend.'); }
+  btn.disabled = false; btn.textContent = 'Play it';
+};
+
+// IMAGE
+$('img-go').onclick = async () => {
+  const prompt = $('img-prompt').value.trim();
+  if (!prompt) return;
+  const btn = $('img-go');
+  btn.disabled = true; btn.textContent = 'Cooking...';
+  note($('img-out'), 'info', 'Generating image — this can take a minute...');
+  try {
+    const r = await fetch('/v1/images/generate', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ prompt, size: $('img-size').value })
+    });
+    if (!r.ok) {
+      const j = await r.json();
+      note($('img-out'), 'err', j.error || 'Something went wrong.');
+    } else {
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      $('img-out').innerHTML = `<img src="${url}" alt="generated image">`;
+    }
+  } catch (e) { note($('img-out'), 'err', 'Could not reach the backend.'); }
+  btn.disabled = false; btn.textContent = 'Generate';
+};
+
+// VIDEO
+$('vid-go').onclick = async () => {
+  const prompt = $('vid-prompt').value.trim();
+  if (!prompt) return;
+  const btn = $('vid-go');
+  btn.disabled = true; btn.textContent = 'Cooking...';
+  note($('vid-out'), 'info', 'Video takes a few minutes...');
+  try {
+    const r = await fetch('/v1/videos/generate', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ prompt })
+    });
+    const j = await r.json().catch(() => ({}));
+    note($('vid-out'), 'err', j.error || 'Video provider is not configured yet.');
+  } catch (e) { note($('vid-out'), 'err', 'Could not reach the backend.'); }
+  btn.disabled = false; btn.textContent = 'Generate';
+};
+
+// CHAT
+const history = [];
+function bubble(role, text) {
+  const d = document.createElement('div');
+  d.className = 'bubble ' + role;
+  d.textContent = text;
+  $('chatlog').appendChild(d);
+  $('chatlog').scrollTop = $('chatlog').scrollHeight;
+}
+async function sendChat() {
+  const inp = $('chat-in');
+  const text = inp.value.trim();
+  if (!text) return;
+  inp.value = '';
+  bubble('user', text);
+  history.push({ role: 'user', content: text });
+  bubble('bot', '...');
+  try {
+    const r = await fetch('/v1/chat', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ messages: history })
+    });
+    const j = await r.json();
+    $('chatlog').lastChild.remove();
+    if (j.ok) { bubble('bot', j.reply); history.push({ role: 'assistant', content: j.reply }); }
+    else bubble('bot', '⚠️ ' + (j.error || 'Something went wrong.'));
+  } catch (e) {
+    $('chatlog').lastChild.remove();
+    bubble('bot', '⚠️ Could not reach the backend.');
+  }
+}
+$('chat-go').onclick = sendChat;
+$('chat-in').onkeydown = e => { if (e.key === 'Enter') sendChat(); };
+</script>
+</body>
+</html>
