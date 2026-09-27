@@ -1,67 +1,40 @@
 # BRAIN Backend
 
-An independent creative API and web studio served from one Python process. Deploy it to Render and open the service URL: the BRAIN Studio interface is served from `/` alongside the API.
+BRAIN is an independent creative studio and API that runs entirely from a Render web service. Its UI is served from `/`; provider keys stay only in Render environment variables.
 
-## What it does
+## Built-in tools
 
-| Tool | Route | Status |
+| Tool | Endpoint | Cloud provider |
 |---|---|---|
-| Health | `GET /health` | Ready |
-| Voices | `GET /v1/voices` | Ready |
-| Speech | `POST /v1/speak` | Requires the `tts` CLI on the host |
-| Images | `POST /v1/images/generate` | Uses OpenAI `gpt-image-1` |
-| Video | `POST /v1/videos/generate` | Uses a configured Replicate video model |
-| Chat | `POST /v1/chat` | Uses OpenAI or an OpenAI-compatible endpoint |
+| Image generation | `POST /v1/images/generate` | OpenAI image model |
+| Video generation | `POST /v1/videos/generate` | Replicate model you configure |
+| Speech | `POST /v1/speak` | OpenAI text-to-speech model |
+| Chat | `POST /v1/chat` | OpenAI or compatible API |
+| Health | `GET /health` | BRAIN |
 
-## Run locally
+## Deploy without a computer
 
-```sh
-python3 server.py
-# http://localhost:8765
-```
+1. Open the [upgrade pull request](https://github.com/Operationtakeover870/brain-backend/pull/1) on GitHub and merge it.
+2. In Render, open your BRAIN service and choose **Manual Deploy → Deploy latest commit**. If automatic deploys are enabled, merging is enough.
+3. In **Environment**, add the secret values shown in `.env.example`:
+   - `OPENAI_API_KEY` enables image generation, speech, and chat.
+   - `REPLICATE_API_TOKEN` and `REPLICATE_MODEL_VERSION` enable video.
+4. Wait for the deployment to finish, then open your Render service URL in any browser.
 
-For Render, use this start command:
+The included `render.yaml` makes it possible to create a new service from the repository with Render's Blueprint flow as well. The service starts with `python3 server.py` and uses Render's `PORT` automatically.
 
-```sh
-python3 server.py
-```
+## Video setup
 
-The server reads Render's `PORT` environment variable automatically.
-
-## Environment variables
-
-Add these in **Render → Service → Environment**. Never put provider keys in `index.html` or commit them to GitHub.
-
-| Variable | Used by | Required |
-|---|---|---|
-| `OPENAI_API_KEY` | Images and chat | For image/chat |
-| `OPENAI_BASE_URL` | Chat | Optional; defaults to `https://api.openai.com/v1` |
-| `CHAT_MODEL` | Chat | Optional; defaults to `gpt-4o-mini` |
-| `REPLICATE_API_TOKEN` | Video | For video |
-| `REPLICATE_MODEL_VERSION` | Video | For video; the Replicate model version ID |
-| `REPLICATE_VIDEO_INPUT_JSON` | Video | Optional JSON object of fixed model-specific inputs |
-
-For example, `REPLICATE_VIDEO_INPUT_JSON` might contain a model's required fixed settings:
+Replicate models have different required inputs. Add the model version ID as `REPLICATE_MODEL_VERSION`. If the chosen model needs fixed settings, add them in `REPLICATE_VIDEO_INPUT_JSON`, for example:
 
 ```json
 {"num_frames": 81, "fps": 16}
 ```
 
-The browser sends only the user's video `prompt`; the backend merges it with this server-side configuration, creates the Replicate prediction, polls it for up to 10 minutes, downloads the result, and returns an MP4 to the Studio.
-
-## API examples
-
-```sh
-curl https://YOUR-RENDER-SERVICE.onrender.com/health
-
-curl -X POST https://YOUR-RENDER-SERVICE.onrender.com/v1/images/generate \
-  -H 'Content-Type: application/json' \
-  -d '{"prompt":"a moonlit chrome helmet in dune grass","size":"1024x1024"}' \
-  --output brain.png
-```
+Do not put `prompt` in that JSON—the Studio supplies the user’s prompt for every generation.
 
 ## Notes
 
-- The Studio calls relative URLs, so it works from the same Render service without exposing provider credentials to the browser.
-- The `tts` command must be installed in the Render image for speech to work. Images, video, and chat use their configured cloud providers instead.
-- Replicate video models vary in their accepted inputs. Put required static inputs in `REPLICATE_VIDEO_INPUT_JSON`; leave `prompt` out of that JSON because the Studio supplies it per generation.
+- This implementation is cloud-native: speech no longer requires a local `tts` program or a personal computer.
+- API provider bills are separate from Render. BRAIN does not use Krea generation credits.
+- Keep all real keys in Render’s secret environment settings, never in the repo or browser.
