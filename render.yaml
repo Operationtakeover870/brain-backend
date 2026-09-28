@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: brain-backend
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python3 server.py
+    healthCheckPath: /health
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_IMAGE_MODEL
+        value: gpt-image-1
+      - key: OPENAI_TTS_MODEL
+        value: gpt-4o-mini-tts
+      - key: CHAT_MODEL
+        value: gpt-4o-mini
+      - key: REPLICATE_API_TOKEN
+        sync: false
+      - key: REPLICATE_MODEL_VERSION
+        sync: false
+      - key: REPLICATE_VIDEO_INPUT_JSON
+        value: "{}"
