@@ -1,11 +1,13 @@
-"""BRAIN Backend — dependency-free REST API and web studio server."""
+"""BRAIN Backend — REST API, private Studio, and optional API-key gateway."""
 
+import hmac
 import json
 import mimetypes
 import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
+from key_store import KeyStoreNotConfigured, create_key, list_keys, revoke_key, validate_key
 from providers import PROVIDERS, VOICES, ProviderNotConfigured
 
 PORT = int(os.environ.get("PORT", "8765"))
@@ -34,8 +36,12 @@ def send_bytes(handler, status, content_type, data):
     handler.wfile.write(data)
 
 
+def api_key_required():
+    return os.environ.get("BRAIN_REQUIRE_API_KEY", "false").lower() == "true"
+
+
 class Handler(BaseHTTPRequestHandler):
-    server_version = "BrainBackend/2.0"
+    server_version = "BrainBackend/3.0"
 
     def log_message(self, fmt, *args):
         print(f"[{self.command} {self.path}]", fmt % args)
@@ -53,7 +59,38 @@ class Handler(BaseHTTPRequestHandler):
         except json.JSONDecodeError:
             raise ValueError("invalid JSON body")
 
+    def is_admin(self):
+        expected = os.environ.get("BRAIN_ADMIN_SECRET")
+        supplied = self.headers.get("X-BRAIN-ADMIN", "")
+        return bool(expected) and hmac.compare_digest(supplied, expected)
+
+    def require_admin(self):
+        if not os.environ.get("BRAIN_ADMIN_SECRET"):
+            send_json(self, 503, {"ok": False, "error": "Set BRAIN_ADMIN_SECRET on Render before managing API keys."})
+            return False
+        if not self.is_admin():
+            send_json(self, 401, {"ok": False, "error": "Admin authorization required."})
+            return False
+        return True
+
+    def require_api_key(self):
+        if not api_key_required():
+            return True
+        authorization = self.headers.get("Authorization", "")
+        token = authorization.removeprefix("Bearer ").strip() if authorization.startswith("Bearer ") else ""
+        try:
+            valid = validate_key(token)
+        except KeyStoreNotConfigured as error:
+            send_json(self, 503, {"ok": False, "error": str(error)})
+            return False
+        if not valid:
+            send_json(self, 401, {"ok": False, "error": "A valid BRAIN API key is required."})
+            return False
+        return True
+
     def run_provider(self, key, payload):
+        if not self.require_api_key():
+            return
         provider = PROVIDERS[key]
         try:
             result = provider.run(payload)
@@ -90,14 +127,19 @@ class Handler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         if path == "/health":
             send_json(self, 200, {
-                "ok": True,
-                "service": "brain-backend",
+                "ok": True, "service": "brain-backend",
+                "api_key_required": api_key_required(),
                 "providers": {key: provider.name for key, provider in PROVIDERS.items()},
             })
         elif path == "/v1/voices":
-            send_json(self, 200, {"ok": True, "voices": [
-                {"id": key, "label": key.title()} for key in VOICES
-            ]})
+            send_json(self, 200, {"ok": True, "voices": [{"id": key, "label": key.title()} for key in VOICES]})
+        elif path == "/v1/admin/keys":
+            if not self.require_admin():
+                return
+            try:
+                send_json(self, 200, {"ok": True, "keys": list_keys()})
+            except KeyStoreNotConfigured as error:
+                send_json(self, 503, {"ok": False, "error": str(error)})
         elif path in {"/", "/index.html"}:
             self.serve_static("index.html")
         elif path.startswith("/static/"):
@@ -112,11 +154,27 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError as error:
             send_json(self, 400, {"ok": False, "error": str(error)})
             return
+        if path == "/v1/admin/keys":
+            if not self.require_admin():
+                return
+            try:
+                send_json(self, 201, {"ok": True, **create_key(payload.get("label"))})
+            except (KeyStoreNotConfigured, ValueError) as error:
+                send_json(self, 400 if isinstance(error, ValueError) else 503, {"ok": False, "error": str(error)})
+            return
+        if path.startswith("/v1/admin/keys/") and path.endswith("/revoke"):
+            if not self.require_admin():
+                return
+            try:
+                key_id = int(path.split("/")[4])
+                revoke_key(key_id)
+                send_json(self, 200, {"ok": True})
+            except (KeyStoreNotConfigured, ValueError) as error:
+                send_json(self, 400 if isinstance(error, ValueError) else 503, {"ok": False, "error": str(error)})
+            return
         routes = {
-            "/v1/speak": "tts",
-            "/v1/images/generate": "image",
-            "/v1/videos/generate": "video",
-            "/v1/chat": "chat",
+            "/v1/speak": "tts", "/v1/images/generate": "image",
+            "/v1/videos/generate": "video", "/v1/chat": "chat",
         }
         provider_key = routes.get(path)
         if provider_key:
@@ -128,8 +186,4 @@ class Handler(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     print(f"BRAIN backend live on http://0.0.0.0:{PORT}")
-    print("Providers:", ", ".join(f"{key}={provider.name}" for key, provider in PROVIDERS.items()))
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        print("\nshutting down")
+    server.serve_forever()
