@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 from providers import PROVIDERS, VOICES, ProviderNotConfigured
 
 PORT = int(os.environ.get("PORT", "8765"))
+API_TOKEN = os.environ.get("BRAIN_API_TOKEN", "").strip()
 MAX_BODY = 256 * 1024
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(ROOT_DIR, "static")
@@ -32,6 +33,18 @@ def send_bytes(handler, status, content_type, data):
     handler.send_header("Cache-Control", "no-store")
     handler.end_headers()
     handler.wfile.write(data)
+
+
+def is_authorized(handler):
+    """True when the request carries the API token, or when no token is configured.
+
+    Set BRAIN_API_TOKEN in the environment before exposing this service publicly —
+    without it, anyone who finds the URL can spend your provider budget.
+    """
+    if not API_TOKEN:
+        return True
+    auth = handler.headers.get("Authorization", "")
+    return auth == "Bearer " + API_TOKEN
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -95,6 +108,9 @@ class Handler(BaseHTTPRequestHandler):
                 "providers": {key: provider.name for key, provider in PROVIDERS.items()},
             })
         elif path == "/v1/voices":
+            if not is_authorized(self):
+                send_json(self, 401, {"ok": False, "error": "unauthorized"})
+                return
             send_json(self, 200, {"ok": True, "voices": [
                 {"id": key, "label": key.title()} for key in VOICES
             ]})
@@ -106,6 +122,9 @@ class Handler(BaseHTTPRequestHandler):
             send_json(self, 404, {"ok": False, "error": "not found"})
 
     def do_POST(self):
+        if not is_authorized(self):
+            send_json(self, 401, {"ok": False, "error": "unauthorized"})
+            return
         path = urlparse(self.path).path
         try:
             payload = self.read_json_body()
@@ -128,6 +147,8 @@ class Handler(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     print(f"BRAIN backend live on http://0.0.0.0:{PORT}")
+    if not API_TOKEN:
+        print("WARNING: BRAIN_API_TOKEN is not set — /v1/* endpoints are open. Set it before exposing this service publicly.")
     print("Providers:", ", ".join(f"{key}={provider.name}" for key, provider in PROVIDERS.items()))
     try:
         server.serve_forever()

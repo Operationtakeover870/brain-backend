@@ -14,12 +14,12 @@ BRAIN is an independent creative studio and API that runs entirely from a Render
 
 ## Deploy without a computer
 
-1. Open the [upgrade pull request](https://github.com/Operationtakeover870/brain-backend/pull/1) on GitHub and merge it.
-2. In Render, open your BRAIN service and choose **Manual Deploy → Deploy latest commit**. If automatic deploys are enabled, merging is enough.
-3. In **Environment**, add the secret values shown in `.env.example`:
+1. In Render, create a web service from this repository (or use the included `render.yaml` Blueprint). The service starts with `python3 server.py` and uses Render's `PORT` automatically. If automatic deploys are enabled, pushing to `main` is enough to update it.
+2. In **Environment**, add the secret values shown in `.env.example`:
    - `OPENAI_API_KEY` enables image generation, speech, and chat.
    - `REPLICATE_API_TOKEN` and `REPLICATE_MODEL_VERSION` enable video.
-4. Wait for the deployment to finish, then open your Render service URL in any browser.
+   - `BRAIN_API_TOKEN` — set this to a long random string. Every `/v1/*` request must send it as an `Authorization: Bearer <token>` header, and the Studio UI will prompt for it. Without it, anyone who finds your URL can spend your provider budget.
+3. Wait for the deployment to finish, then open your Render service URL in any browser.
 
 The included `render.yaml` makes it possible to create a new service from the repository with Render's Blueprint flow as well. The service starts with `python3 server.py` and uses Render's `PORT` automatically.
 
